@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; font-family: Arial; background: #14161A; color: #fff; }
+        input, button { padding: 8px; margin: 5px 0; font-size: 14px; }
+        button { background: #FFB627; color: #000; border: none; cursor: pointer; font-weight: bold; width: 100%; }
+        div { margin-bottom: 15px; }
+        .result { border: 1px solid #555; padding: 15px; margin-top: 30px; border-radius: 8px; }
+        ul { margin: 5px 0; padding-left: 20px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const API_BASE = "https://catalogo-pecas-backend.onrender.com";
+
+        function App() {
+            const [montadora, setMontadora] = React.useState("");
+            const [modelo, setModelo] = React.useState("");
+            const [motor, setMotor] = React.useState("");
+            const [ano, setAno] = React.useState("");
+            const [peca, setPeca] = React.useState("");
+            const [result, setResult] = React.useState(null);
+            const [loading, setLoading] = React.useState(false);
+            const [error, setError] = React.useState("");
+
+            const buscar = async () => {
+                if (!peca || !montadora || !modelo) {
+                    setError("Preenche: peça, montadora, modelo");
+                    return;
+                }
+                setLoading(true);
+                setError("");
+                setResult(null);
+
+                try {
+                    const formData = new FormData();
+                    formData.append("peca", peca);
+                    formData.append("montadora", montadora);
+                    formData.append("modelo", modelo);
+                    if (ano) formData.append("ano", ano);
+                    if (motor) formData.append("motor", motor);
+
+                    const response = await fetch(`${API_BASE}/search-part-by-vehicle`, {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || "Erro na busca");
+                    }
+
+                    const json = await response.json();
+                    setResult(json.data);
+                } catch (err) {
+                    setError(`Erro: ${err.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
+                    <h1>🔧 Bancada - Busca de Peças</h1>
+                    
+                    <div>
+                        <label>Montadora:</label>
+                        <input value={montadora} onChange={e => setMontadora(e.target.value)} placeholder="Volkswagen, Fiat..." />
+                    </div>
+
+                    <div>
+                        <label>Modelo:</label>
+                        <input value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Gol, Uno..." />
+                    </div>
+
+                    <div>
+                        <label>Motor:</label>
+                        <input value={motor} onChange={e => setMotor(e.target.value)} placeholder="1.0, 1.6..." />
+                    </div>
+
+                    <div>
+                        <label>Ano:</label>
+                        <input value={ano} onChange={e => setAno(e.target.value)} placeholder="2010-2015..." />
+                    </div>
+
+                    <div>
+                        <label>Peça:</label>
+                        <input value={peca} onChange={e => setPeca(e.target.value)} placeholder="sensor O2, válvula solenoide..." />
+                    </div>
+
+                    {error && <p style={{ color: "red" }}>❌ {error}</p>}
+
+                    <button onClick={buscar} disabled={loading}>
+                        {loading ? "⏳ Buscando..." : "🔍 Buscar Peça"}
+                    </button>
+
+                    {result && (
+                        <div className="result">
+                            <h2>✅ {result.nome}</h2>
+                            <p><strong>Categoria:</strong> {result.categoria}</p>
+                            <p><strong>Confiança:</strong> {result.confianca}</p>
+                            
+                            {result.codigos_oem?.length > 0 && (
+                                <div>
+                                    <p><strong>Códigos OEM:</strong></p>
+                                    <ul>
+                                        {result.codigos_oem.map((c, i) => <li key={i}>{c}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {result.codigos_fornecedores?.length > 0 && (
+                                <div>
+                                    <p><strong>Fornecedores:</strong></p>
+                                    <ul>
+                                        {result.codigos_fornecedores.map((c, i) => <li key={i}>{c}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {result.aplicacoes_provaveis?.length > 0 && (
+                                <div>
+                                    <p><strong>Aplicações:</strong></p>
+                                    <ul>
+                                        {result.aplicacoes_provaveis.map((a, i) => <li key={i}>{a}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {result.observacoes && (
+                                <p><strong>Observações:</strong> {result.observacoes}</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById("root"));
+    </script>
+</body>
+</html>
