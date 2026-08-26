@@ -1,10 +1,5 @@
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
-import base64
-import os
-import json
-import re
 
 app = FastAPI()
 
@@ -15,20 +10,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/messages"
-
-def extract_json(text):
-    """Extrai JSON de uma string"""
-    text = text.strip()
-    # Remove markdown
-    if "```" in text:
-        text = re.sub(r'^```json\n', '', text)
-        text = re.sub(r'\n```$', '', text)
-        text = re.sub(r'^```\n', '', text)
-        text = re.sub(r'\n```$', '', text)
-    return json.loads(text)
 
 @app.get("/health")
 async def health():
@@ -42,78 +23,22 @@ async def search_part_by_vehicle(
     ano: str = Form(None),
     motor: str = Form(None),
 ):
+    """Retorna dados MOCK para testar"""
     try:
-        query = f"Buscar: {peca} para {montadora} {modelo}"
-        if ano:
-            query += f" ({ano})"
-        if motor:
-            query += f" motor {motor}"
-        
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://catalogo-pecas-backend.onrender.com",
-        }
-        
-        # Prompt mais detalhado
-        prompt = f"""Você é um especialista em peças automotivas. 
-        
-Pesquise informações sobre: {peca}
-Para veículo: {montadora} {modelo} {ano or 'qualquer ano'} {motor or 'qualquer motor'}
-
-Retorne APENAS um JSON válido (sem markdown, sem explicação):
-{{
-    "nome": "Nome da peça",
-    "categoria": "elétrica/mecânica/hidráulica/fluidos",
-    "codigos_oem": ["código1", "código2"],
-    "codigos_fornecedores": ["Bosch XXX", "Denso YYY"],
-    "aplicacoes_provaveis": ["aplicação1"],
-    "preco_referencia": "R$ XXX-YYY",
-    "confianca": "alta",
-    "observacoes": "observações relevantes"
-}}
-
-IMPORTANTE: Retorne SOMENTE JSON, nada mais."""
-        
-        payload = {
-            "model": "anthropic/claude-3.5-sonnet",
-            "max_tokens": 1000,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-        }
-        
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(OPENROUTER_API_URL, json=payload, headers=headers)
-        
-        if response.status_code != 200:
-            return {
-                "success": False, 
-                "error": f"Status {response.status_code}",
-                "details": response.text
+        # Dados de teste
+        return {
+            "success": True,
+            "data": {
+                "nome": f"Sensor O2 para {montadora} {modelo}",
+                "categoria": "elétrica",
+                "codigos_oem": ["1H0906262", "06A906262A"],
+                "codigos_fornecedores": ["Bosch 0258006538", "Denso 234-4028"],
+                "aplicacoes_provaveis": [f"{montadora} {modelo} {ano}"],
+                "preco_referencia": "R$ 150-250",
+                "confianca": "alta",
+                "observacoes": "Sensor de oxigênio pré-catalisador. Compatível com motores 1.0-1.6L"
             }
-        
-        result = response.json()
-        if not result.get("content"):
-            return {"success": False, "error": "No content from API"}
-        
-        text_content = result["content"][0].get("text", "")
-        
-        # Tenta extrair JSON
-        try:
-            data = extract_json(text_content)
-        except json.JSONDecodeError as e:
-            return {
-                "success": False,
-                "error": "JSON parse error",
-                "raw_response": text_content[:500]
-            }
-        
-        return {"success": True, "data": data}
-        
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
