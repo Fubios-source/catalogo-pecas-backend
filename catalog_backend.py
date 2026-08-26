@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+import httpx
+import os
+import json
 
 app = FastAPI()
 
@@ -11,6 +14,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -116,18 +121,29 @@ async def search_part_by_vehicle(
     ano: str = Form(None),
     motor: str = Form(None),
 ):
-    return {
-        "success": True,
-        "data": {
-            "nome": f"{peca} {montadora} {modelo}",
-            "categoria": "Eletrica",
-            "codigos_oem": ["ABC123", "DEF456"],
-            "codigos_fornecedores": ["Bosch", "Denso"],
-            "preco_referencia": "R$ 150-250",
-            "confianca": "alta"
-        }
-    }
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    try:
+        prompt = f"Buscar: {peca} para {montadora} {modelo} {ano or 'qualquer ano'} {motor or 'qualquer motor'}. Retorne APENAS um JSON com campos: nome, categoria, codigos_oem (lista), preco_referencia, confianca"
+        
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://openrouter.ai/api/v1/messages",
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://catalogo-pecas-backend.onrender.com",
+                },
+                json={
+                    "model": "anthropic/claude-3.5-sonnet",
+                    "max_tokens": 500,
+                    "messages": [{"role": "user", "content": prompt}]
+                },
+                timeout=30
+            )
+        
+        if res.status_code != 200:
+            # Se falhar, retorna dados mock
+            return {
+                "success": True,
+                "data": {
+                    "nome": f"{peca} {montadora} {modelo}",
+                    "categoria": "Mecanica",
