@@ -6,12 +6,113 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { margin: 0; font-family: Arial; background: #14161A; color: #fff; }
-        input, button { padding: 8px; margin: 5px 0; font-size: 14px; }
-        button { background: #FFB627; color: #000; border: none; cursor: pointer; font-weight: bold; width: 100%; }
-        div { margin-bottom: 15px; }
-        .result { border: 1px solid #555; padding: 15px; margin-top: 30px; border-radius: 8px; }
-        ul { margin: 5px 0; padding-left: 20px; }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #14161A; 
+            color: #fff; 
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: #1a1d23;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1 { 
+            text-align: center;
+            color: #FFB627;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #FFB627;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            background: #222;
+            color: #fff;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #FFB627;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background: #FFB627;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #FFC947;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .result {
+            border: 2px solid #FFB627;
+            padding: 20px;
+            margin-top: 30px;
+            border-radius: 8px;
+            background: #1f2229;
+        }
+        .result h2 {
+            color: #FFB627;
+            margin-top: 0;
+        }
+        .error {
+            color: #FF6B6B;
+            background: #2a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            color: #FFB627;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 25px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .label-info {
+            font-weight: bold;
+            color: #FFB627;
+        }
     </style>
 </head>
 <body>
@@ -20,18 +121,18 @@
         const API_BASE = "https://catalogo-pecas-backend.onrender.com";
 
         function App() {
-            const [montadora, setMontadora] = React.useState("");
-            const [modelo, setModelo] = React.useState("");
-            const [motor, setMotor] = React.useState("");
-            const [ano, setAno] = React.useState("");
-            const [peca, setPeca] = React.useState("");
+            const [montadora, setMontadora] = React.useState("Volkswagen");
+            const [modelo, setModelo] = React.useState("Gol");
+            const [motor, setMotor] = React.useState("1.0");
+            const [ano, setAno] = React.useState("2010-2015");
+            const [peca, setPeca] = React.useState("sensor O2");
             const [result, setResult] = React.useState(null);
             const [loading, setLoading] = React.useState(false);
             const [error, setError] = React.useState("");
 
             const buscar = async () => {
                 if (!peca || !montadora || !modelo) {
-                    setError("Preenche: peça, montadora, modelo");
+                    setError("Preencha: peça, montadora, modelo");
                     return;
                 }
                 setLoading(true);
@@ -46,19 +147,28 @@
                     if (ano) formData.append("ano", ano);
                     if (motor) formData.append("motor", motor);
 
+                    console.log("Enviando:", { peca, montadora, modelo, ano, motor });
+
                     const response = await fetch(`${API_BASE}/search-part-by-vehicle`, {
                         method: "POST",
                         body: formData,
                     });
 
+                    console.log("Status:", response.status);
+                    const json = await response.json();
+                    console.log("Resposta:", json);
+
                     if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.detail || "Erro na busca");
+                        throw new Error(json.error || "Erro na busca");
                     }
 
-                    const json = await response.json();
-                    setResult(json.data);
+                    if (json.success && json.data) {
+                        setResult(json.data);
+                    } else {
+                        setError("Nenhum resultado encontrado");
+                    }
                 } catch (err) {
+                    console.error("Erro completo:", err);
                     setError(`Erro: ${err.message}`);
                 } finally {
                     setLoading(false);
@@ -66,67 +176,102 @@
             };
 
             return (
-                <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
-                    <h1>🔧 Bancada - Busca de Peças</h1>
+                <div className="container">
+                    <h1>🔧 BANCADA - Busca de Peças</h1>
                     
-                    <div>
+                    <div className="form-group">
                         <label>Montadora:</label>
-                        <input value={montadora} onChange={e => setMontadora(e.target.value)} placeholder="Volkswagen, Fiat..." />
+                        <input 
+                            value={montadora} 
+                            onChange={e => setMontadora(e.target.value)} 
+                            placeholder="Volkswagen, Fiat..." 
+                        />
                     </div>
 
-                    <div>
+                    <div className="form-group">
                         <label>Modelo:</label>
-                        <input value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Gol, Uno..." />
+                        <input 
+                            value={modelo} 
+                            onChange={e => setModelo(e.target.value)} 
+                            placeholder="Gol, Uno..." 
+                        />
                     </div>
 
-                    <div>
+                    <div className="form-group">
                         <label>Motor:</label>
-                        <input value={motor} onChange={e => setMotor(e.target.value)} placeholder="1.0, 1.6..." />
+                        <input 
+                            value={motor} 
+                            onChange={e => setMotor(e.target.value)} 
+                            placeholder="1.0, 1.6..." 
+                        />
                     </div>
 
-                    <div>
+                    <div className="form-group">
                         <label>Ano:</label>
-                        <input value={ano} onChange={e => setAno(e.target.value)} placeholder="2010-2015..." />
+                        <input 
+                            value={ano} 
+                            onChange={e => setAno(e.target.value)} 
+                            placeholder="2010-2015..." 
+                        />
                     </div>
 
-                    <div>
+                    <div className="form-group">
                         <label>Peça:</label>
-                        <input value={peca} onChange={e => setPeca(e.target.value)} placeholder="sensor O2, válvula solenoide..." />
+                        <input 
+                            value={peca} 
+                            onChange={e => setPeca(e.target.value)} 
+                            placeholder="sensor O2, válvula..." 
+                        />
                     </div>
 
-                    {error && <p style={{ color: "red" }}>❌ {error}</p>}
+                    {error && <div className="error">❌ {error}</div>}
 
                     <button onClick={buscar} disabled={loading}>
                         {loading ? "⏳ Buscando..." : "🔍 Buscar Peça"}
                     </button>
 
+                    {loading && <div className="loading">Procurando informações...</div>}
+
                     {result && (
                         <div className="result">
-                            <h2>✅ {result.nome}</h2>
-                            <p><strong>Categoria:</strong> {result.categoria}</p>
-                            <p><strong>Confiança:</strong> {result.confianca}</p>
+                            <h2>✅ {result.nome || "Peça encontrada"}</h2>
                             
-                            {result.codigos_oem?.length > 0 && (
+                            <div className="info-row">
+                                <span className="label-info">Categoria:</span>
+                                <span>{result.categoria || "N/A"}</span>
+                            </div>
+
+                            <div className="info-row">
+                                <span className="label-info">Confiança:</span>
+                                <span>{result.confianca || "N/A"}</span>
+                            </div>
+
+                            <div className="info-row">
+                                <span className="label-info">Preço Referência:</span>
+                                <span>{result.preco_referencia || "N/A"}</span>
+                            </div>
+
+                            {result.codigos_oem && result.codigos_oem.length > 0 && (
                                 <div>
-                                    <p><strong>Códigos OEM:</strong></p>
+                                    <p style={{marginTop: "15px"}}><strong>📋 Códigos OEM:</strong></p>
                                     <ul>
                                         {result.codigos_oem.map((c, i) => <li key={i}>{c}</li>)}
                                     </ul>
                                 </div>
                             )}
 
-                            {result.codigos_fornecedores?.length > 0 && (
+                            {result.codigos_fornecedores && result.codigos_fornecedores.length > 0 && (
                                 <div>
-                                    <p><strong>Fornecedores:</strong></p>
+                                    <p style={{marginTop: "15px"}}><strong>🏢 Fornecedores:</strong></p>
                                     <ul>
                                         {result.codigos_fornecedores.map((c, i) => <li key={i}>{c}</li>)}
                                     </ul>
                                 </div>
                             )}
 
-                            {result.aplicacoes_provaveis?.length > 0 && (
+                            {result.aplicacoes_provaveis && result.aplicacoes_provaveis.length > 0 && (
                                 <div>
-                                    <p><strong>Aplicações:</strong></p>
+                                    <p style={{marginTop: "15px"}}><strong>🚗 Aplicações:</strong></p>
                                     <ul>
                                         {result.aplicacoes_provaveis.map((a, i) => <li key={i}>{a}</li>)}
                                     </ul>
@@ -134,7 +279,10 @@
                             )}
 
                             {result.observacoes && (
-                                <p><strong>Observações:</strong> {result.observacoes}</p>
+                                <div style={{marginTop: "15px"}}>
+                                    <p><strong>📝 Observações:</strong></p>
+                                    <p>{result.observacoes}</p>
+                                </div>
                             )}
                         </div>
                     )}
