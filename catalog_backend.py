@@ -1,8 +1,8 @@
 """
 FastAPI Backend para Catálogo de Peças
-- Proxy seguro pra API do OpenRouter (evita CORS)
+- Proxy seguro pra API do Anthropic (evita CORS)
 - Identifica peça por foto ou busca por veículo
-- Deploy: Render
+- Deploy: Railway.app
 """
 
 import os
@@ -205,12 +205,20 @@ Se não achar informação, ainda assim dê o melhor palpite e marque confianca 
 
         # Limpa markdown e parseia JSON
         clean_text = last_text.replace("```json", "").replace("```", "").strip()
-        data = json.loads(clean_text)
+
+        try:
+            data = json.loads(clean_text)
+        except json.JSONDecodeError:
+            # MODO DEBUG TEMPORARIO: mostra a resposta crua da IA pra diagnosticar
+            return {
+                "success": False,
+                "debug_raw_text": last_text,
+                "debug_all_text_blocks": text_blocks,
+                "debug_block_types": [b.get("type") for b in result.get("content", [])],
+            }
 
         return {"success": True, "data": data}
 
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Resposta da IA não é JSON válido: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao buscar peça: {str(e)}")
 
