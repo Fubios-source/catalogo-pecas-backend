@@ -1,8 +1,8 @@
 """
 FastAPI Backend para Catálogo de Peças
-- Proxy seguro pra API do Anthropic (evita CORS)
+- Proxy seguro pra API do OpenRouter (evita CORS)
 - Identifica peça por foto ou busca por veículo
-- Deploy: Railway.app
+- Deploy: Render
 """
 
 import os
@@ -25,11 +25,12 @@ app.add_middleware(
 )
 
 # Lê a chave API das variáveis de ambiente
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-if not ANTHROPIC_API_KEY:
-    raise RuntimeError("ANTHROPIC_API_KEY não configurada. Define como variável de ambiente.")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise RuntimeError("OPENROUTER_API_KEY não configurada. Define como variável de ambiente.")
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/messages"
+MODEL = "anthropic/claude-sonnet-4.6"
 
 
 def encode_image_to_base64(image_bytes: bytes) -> str:
@@ -51,16 +52,18 @@ def normalizar_ano(ano_str: str) -> str:
 
 async def call_anthropic(messages: list, tools: list = None, max_tokens: int = 1000) -> dict:
     """
-    Chama a API do Anthropic de forma segura (backend-to-backend).
+    Chama o Claude via OpenRouter, usando o endpoint compatível com o formato
+    da Anthropic Messages API (backend-to-backend, evita CORS no navegador).
     """
     headers = {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://catalogo-pecas-backend.onrender.com",
+        "X-Title": "BANCADA",
     }
 
     payload = {
-        "model": "claude-sonnet-4-6",
+        "model": MODEL,
         "max_tokens": max_tokens,
         "messages": messages,
     }
@@ -69,7 +72,7 @@ async def call_anthropic(messages: list, tools: list = None, max_tokens: int = 1
         payload["tools"] = tools
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(ANTHROPIC_URL, json=payload, headers=headers)
+        response = await client.post(OPENROUTER_URL, json=payload, headers=headers)
         response.raise_for_status()
         return response.json()
 
@@ -187,8 +190,8 @@ Se não achar informação, ainda assim dê o melhor palpite e marque confianca 
 
         messages = [{"role": "user", "content": prompt}]
 
-        # Usa web search tool pra pesquisar
-        tools = [{"type": "web_search_20250305", "name": "web_search"}]
+        # Usa web search tool pra pesquisar (formato OpenRouter)
+        tools = [{"type": "openrouter:web_search"}]
 
         result = await call_anthropic(messages, tools=tools, max_tokens=2000)
 
